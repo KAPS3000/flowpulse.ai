@@ -73,6 +73,9 @@ docker-server:
 docker-web:
 	docker build -f docker/Dockerfile.web -t flowpulse-web:$(VERSION) .
 
+docker-allinone:
+	docker build -f docker/Dockerfile.allinone -t flowpulse:$(VERSION) -t flowpulse:latest .
+
 docker: docker-agent docker-aggregator docker-server docker-web
 
 ## ── Clean ────────────────────────────────────────────────────

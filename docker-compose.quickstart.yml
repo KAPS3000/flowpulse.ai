@@ -1,0 +1,124 @@
+services:
+  # ── Storage ────────────────────────────────────────────────
+  clickhouse:
+    image: clickhouse/clickhouse-server:24-alpine
+    ports:
+      - "${CLICKHOUSE_HTTP_PORT:-8123}:8123"
+      - "${CLICKHOUSE_NATIVE_PORT:-9000}:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    environment:
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  nats:
+    image: nats:2-alpine
+    ports:
+      - "${NATS_PORT:-4222}:4222"
+      - "${NATS_MONITOR_PORT:-8222}:8222"
+    command: ["--js", "--sd", "/data", "-m", "8222"]
+    volumes:
+      - nats_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    command: ["redis-server", "--save", "60", "1"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # ── Application ────────────────────────────────────────────
+  aggregator:
+    image: ghcr.io/kaps3000/flowpulse-aggregator:${FLOWPULSE_VERSION:-latest}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.aggregator
+    ports:
+      - "${AGGREGATOR_GRPC_PORT:-9091}:9091"
+      - "${AGGREGATOR_HTTP_PORT:-9092}:9092"
+    environment:
+      FLOWPULSE_CLICKHOUSE_DSN: "clickhouse://clickhouse:9000"
+      FLOWPULSE_NATS_URL: "nats://nats:4222"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    restart: unless-stopped
+
+  server:
+    image: ghcr.io/kaps3000/flowpulse-server:${FLOWPULSE_VERSION:-latest}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.server
+    ports:
+      - "${API_PORT:-8080}:8080"
+    environment:
+      FLOWPULSE_CLICKHOUSE_DSN: "clickhouse://clickhouse:9000"
+      FLOWPULSE_NATS_URL: "nats://nats:4222"
+      FLOWPULSE_REDIS_ADDR: "redis:6379"
+      FLOWPULSE_JWT_SECRET: "${JWT_SECRET:-flowpulse-quickstart-secret}"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    image: ghcr.io/kaps3000/flowpulse-web:${FLOWPULSE_VERSION:-latest}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: "http://localhost:${API_PORT:-8080}"
+      NEXT_PUBLIC_WS_URL: "ws://localhost:${API_PORT:-8080}/ws"
+    depends_on:
+      - server
+    restart: unless-stopped
+
+  # ── Mock Data (optional, for demo) ────────────────────────
+  mock-data:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./mock-server.mjs:/app/mock-server.mjs:ro
+      - ./package.json:/app/package.json:ro
+      - ./package-lock.json:/app/package-lock.json:ro
+    command: ["sh", "-c", "npm ci --omit=dev 2>/dev/null; node mock-server.mjs"]
+    environment:
+      AGGREGATOR_URL: "http://aggregator:9092"
+      API_URL: "http://server:8080"
+    depends_on:
+      - aggregator
+      - server
+    profiles:
+      - demo
+    restart: unless-stopped
+
+volumes:
+  clickhouse_data:
+  nats_data:
+  redis_data:

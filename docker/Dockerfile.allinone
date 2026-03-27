@@ -1,0 +1,66 @@
+FROM golang:1.22-bookworm AS go-builder
+
+WORKDIR /src
+COPY go.mod go.sum* ./
+RUN go mod tidy && go mod download
+COPY . .
+
+RUN CGO_ENABLED=0 go build -ldflags "-s -w" -o /bin/flowpulse-aggregator ./cmd/aggregator && \
+    CGO_ENABLED=0 go build -ldflags "-s -w" -o /bin/flowpulse-server     ./cmd/server
+
+FROM node:20-alpine AS web-builder
+WORKDIR /app
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+COPY web/ .
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+RUN npm run build
+
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl wget ca-certificates gnupg supervisor nodejs npm \
+    redis-server nats-server && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN curl https://clickhouse.com/ | sh && \
+    mv clickhouse /usr/local/bin/clickhouse && \
+    ln -s /usr/local/bin/clickhouse /usr/local/bin/clickhouse-server && \
+    ln -s /usr/local/bin/clickhouse /usr/local/bin/clickhouse-client
+
+RUN npm install -g n && n 20 && npm cache clean --force
+
+COPY --from=go-builder /bin/flowpulse-aggregator /usr/local/bin/
+COPY --from=go-builder /bin/flowpulse-server     /usr/local/bin/
+COPY configs/server.yaml /etc/flowpulse/server.yaml
+
+COPY --from=web-builder /app/public      /opt/flowpulse-web/public
+COPY --from=web-builder /app/.next/standalone /opt/flowpulse-web/
+COPY --from=web-builder /app/.next/static    /opt/flowpulse-web/.next/static
+
+RUN mkdir -p /var/lib/clickhouse /var/log/clickhouse-server \
+             /var/lib/nats /var/log/supervisor \
+             /var/lib/redis /var/run/redis
+
+COPY docker/supervisord.conf /etc/supervisor/conf.d/flowpulse.conf
+
+COPY docker/entrypoint-allinone.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENV FLOWPULSE_CLICKHOUSE_DSN="clickhouse://127.0.0.1:9000"
+ENV FLOWPULSE_NATS_URL="nats://127.0.0.1:4222"
+ENV FLOWPULSE_REDIS_ADDR="127.0.0.1:6379"
+ENV FLOWPULSE_JWT_SECRET="flowpulse-allinone-dev"
+ENV NEXT_PUBLIC_API_URL="http://localhost:8080"
+ENV NEXT_PUBLIC_WS_URL="ws://localhost:8080/ws"
+ENV NODE_ENV=production
+
+EXPOSE 3000 8080 9092
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s \
+  CMD curl -sf http://localhost:8080/healthz && curl -sf http://localhost:3000/ || exit 1
+
+ENTRYPOINT ["/entrypoint.sh"]
