@@ -1,0 +1,17 @@
+FROM golang:1.22-bookworm AS builder
+
+WORKDIR /src
+COPY go.mod go.sum* ./
+RUN go mod tidy && go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -ldflags "-s -w" -o /flowpulse-server ./cmd/server
+
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=builder /flowpulse-server /flowpulse-server
+COPY configs/server.yaml /etc/flowpulse/server.yaml
+
+HEALTHCHECK --interval=10s --timeout=3s CMD ["/flowpulse-server", "healthcheck"]
+
+USER nonroot:nonroot
+EXPOSE 8080 9090
+ENTRYPOINT ["/flowpulse-server"]

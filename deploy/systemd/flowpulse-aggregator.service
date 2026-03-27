@@ -1,0 +1,21 @@
+[Unit]
+Description=FlowPulse Flow Aggregator
+Documentation=https://github.com/flowpulse/flowpulse
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=flowpulse
+Group=flowpulse
+ExecStart=/usr/local/bin/flowpulse-aggregator --config /etc/flowpulse/server.yaml
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=flowpulse-aggregator
+EnvironmentFile=-/etc/flowpulse/env
+
+[Install]
+WantedBy=multi-user.target

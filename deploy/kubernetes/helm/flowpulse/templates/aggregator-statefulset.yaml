@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "flowpulse.fullname" . }}-aggregator
+  namespace: {{ include "flowpulse.namespace" . }}
+  labels:
+    {{- include "flowpulse.labels" . | nindent 4 }}
+    app.kubernetes.io/component: aggregator
+spec:
+  serviceName: {{ include "flowpulse.fullname" . }}-aggregator
+  replicas: {{ .Values.aggregator.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "flowpulse.name" . }}-aggregator
+      {{- include "flowpulse.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "flowpulse.name" . }}-aggregator
+        app.kubernetes.io/component: aggregator
+        {{- include "flowpulse.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap-server.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "flowpulse.fullname" . }}-aggregator
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: aggregator
+          image: {{ include "flowpulse.image" (dict "global" .Values.global "image" .Values.aggregator.image) }}
+          imagePullPolicy: {{ .Values.aggregator.image.pullPolicy }}
+          args:
+            - --config=/etc/flowpulse/server.yaml
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.aggregator.resources | nindent 12 }}
+          ports:
+            - name: grpc
+              containerPort: 9091
+              protocol: TCP
+          env:
+            - name: FLOWPULSE_CLICKHOUSE_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "flowpulse.secretName" . }}
+                  key: clickhouse-dsn
+            - name: FLOWPULSE_NATS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "flowpulse.secretName" . }}
+                  key: nats-url
+            - name: FLOWPULSE_REDIS_ADDR
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "flowpulse.secretName" . }}
+                  key: redis-addr
+          livenessProbe:
+            tcpSocket:
+              port: grpc
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            tcpSocket:
+              port: grpc
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: config
+              mountPath: /etc/flowpulse
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "flowpulse.fullname" . }}-server-config
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "flowpulse.fullname" . }}-aggregator
+  namespace: {{ include "flowpulse.namespace" . }}
+  labels:
+    {{- include "flowpulse.labels" . | nindent 4 }}
+    app.kubernetes.io/component: aggregator
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: {{ include "flowpulse.name" . }}-aggregator
+    {{- include "flowpulse.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: grpc
+      port: 9091
+      targetPort: grpc

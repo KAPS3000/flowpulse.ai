@@ -1,0 +1,21 @@
+[Unit]
+Description=FlowPulse eBPF Agent
+Documentation=https://github.com/flowpulse/flowpulse
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/flowpulse-agent --config /etc/flowpulse/agent.yaml
+Restart=on-failure
+RestartSec=5
+AmbientCapabilities=CAP_BPF CAP_PERFMON CAP_NET_ADMIN CAP_SYS_ADMIN
+LimitNOFILE=65536
+LimitMEMLOCK=infinity
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=flowpulse-agent
+
+[Install]
+WantedBy=multi-user.target

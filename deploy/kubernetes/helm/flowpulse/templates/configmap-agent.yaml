@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "flowpulse.fullname" . }}-agent-config
+  namespace: {{ include "flowpulse.namespace" . }}
+  labels:
+    {{- include "flowpulse.labels" . | nindent 4 }}
+    app.kubernetes.io/component: agent
+data:
+  agent.yaml: |
+    node_id: ""
+    tenant_id: "default"
+
+    ebpf:
+      poll_interval: {{ .Values.agent.pollInterval | quote }}
+      flow_timeout: {{ .Values.agent.flowTimeout | quote }}
+      max_flows: {{ .Values.agent.maxFlows }}
+      interfaces: []
+      bpf_object_dir: /bpf
+
+    aggregator:
+      address: "{{ include "flowpulse.fullname" . }}-aggregator:9091"
+      batch_size: 1000
+      flush_interval: 1s
+      max_retry: 3
+
+    health:
+      listen: ":8081"
+
+    log:
+      level: info
+      format: json

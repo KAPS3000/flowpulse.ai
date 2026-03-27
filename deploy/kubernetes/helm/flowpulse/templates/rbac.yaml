@@ -1,0 +1,64 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "flowpulse.fullname" . }}-agent
+  labels:
+    {{- include "flowpulse.labels" . | nindent 4 }}
+    app.kubernetes.io/component: agent
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "flowpulse.fullname" . }}-agent
+  labels:
+    {{- include "flowpulse.labels" . | nindent 4 }}
+    app.kubernetes.io/component: agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "flowpulse.fullname" . }}-agent
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "flowpulse.fullname" . }}-agent
+    namespace: {{ include "flowpulse.namespace" . }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "flowpulse.fullname" . }}-server
+  namespace: {{ include "flowpulse.namespace" . }}
+  labels:
+    {{- include "flowpulse.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: [{{ include "flowpulse.secretName" . | quote }}]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "flowpulse.fullname" . }}-server
+  namespace: {{ include "flowpulse.namespace" . }}
+  labels:
+    {{- include "flowpulse.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "flowpulse.fullname" . }}-server
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "flowpulse.fullname" . }}-server
+    namespace: {{ include "flowpulse.namespace" . }}

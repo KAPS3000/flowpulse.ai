@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package flowpulse.v1;
+
+option go_package = "github.com/flowpulse/flowpulse/proto";
+
+import "google/protobuf/timestamp.proto";
+
+message FlowKey {
+  uint32 src_ip    = 1;
+  uint32 dst_ip    = 2;
+  uint32 src_port  = 3;
+  uint32 dst_port  = 4;
+  uint32 protocol  = 5;
+}
+
+message FlowRecord {
+  FlowKey key                            = 1;
+  string  flow_id                        = 2;
+  string  tenant_id                      = 3;
+  string  node_id                        = 4;
+  uint64  packets                        = 5;
+  uint64  bytes                          = 6;
+  google.protobuf.Timestamp first_seen   = 7;
+  google.protobuf.Timestamp last_seen    = 8;
+  FlowDirection direction                = 9;
+  RDMAInfo rdma                          = 10;
+}
+
+enum FlowDirection {
+  FLOW_DIRECTION_UNKNOWN = 0;
+  FLOW_DIRECTION_INGRESS = 1;
+  FLOW_DIRECTION_EGRESS  = 2;
+}
+
+message RDMAInfo {
+  uint32 qp_number       = 1;
+  uint32 dest_qp         = 2;
+  uint64 rdma_msg_rate   = 3;
+  uint64 retransmissions = 4;
+  uint64 ecn_marks       = 5;
+  uint64 cnp_count       = 6;
+}
+
+message FlowBatch {
+  string             node_id  = 1;
+  string             tenant_id = 2;
+  repeated FlowRecord flows   = 3;
+  google.protobuf.Timestamp collected_at = 4;
+}

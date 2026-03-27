@@ -1,0 +1,149 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "flowpulse.fullname" . }}-server
+  namespace: {{ include "flowpulse.namespace" . }}
+  labels:
+    {{- include "flowpulse.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+spec:
+  replicas: {{ .Values.server.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "flowpulse.name" . }}-server
+      {{- include "flowpulse.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "flowpulse.name" . }}-server
+        app.kubernetes.io/component: server
+        {{- include "flowpulse.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap-server.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "flowpulse.fullname" . }}-server
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: server
+          image: {{ include "flowpulse.image" (dict "global" .Values.global "image" .Values.server.image) }}
+          imagePullPolicy: {{ .Values.server.image.pullPolicy }}
+          args:
+            - --config=/etc/flowpulse/server.yaml
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.server.resources | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: grpc
+              containerPort: 9090
+              protocol: TCP
+          env:
+            - name: FLOWPULSE_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "flowpulse.secretName" . }}
+                  key: jwt-secret
+            - name: FLOWPULSE_CLICKHOUSE_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "flowpulse.secretName" . }}
+                  key: clickhouse-dsn
+            - name: FLOWPULSE_NATS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "flowpulse.secretName" . }}
+                  key: nats-url
+            - name: FLOWPULSE_REDIS_ADDR
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "flowpulse.secretName" . }}
+                  key: redis-addr
+            {{- if .Values.smtp.enabled }}
+            - name: SMTP_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "flowpulse.secretName" . }}
+                  key: smtp-host
+            - name: SMTP_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "flowpulse.secretName" . }}
+                  key: smtp-port
+            - name: SMTP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "flowpulse.secretName" . }}
+                  key: smtp-user
+            - name: SMTP_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "flowpulse.secretName" . }}
+                  key: smtp-pass
+            - name: ALERT_FROM
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "flowpulse.secretName" . }}
+                  key: alert-from
+            - name: ALERT_RECIPIENTS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "flowpulse.secretName" . }}
+                  key: alert-recipients
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: config
+              mountPath: /etc/flowpulse
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "flowpulse.fullname" . }}-server-config
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "flowpulse.fullname" . }}-server
+  namespace: {{ include "flowpulse.namespace" . }}
+  labels:
+    {{- include "flowpulse.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ include "flowpulse.name" . }}-server
+    {{- include "flowpulse.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+    - name: grpc
+      port: 9090
+      targetPort: grpc

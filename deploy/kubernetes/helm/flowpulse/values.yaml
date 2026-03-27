@@ -1,0 +1,163 @@
+global:
+  imageRegistry: ""
+
+nameOverride: ""
+fullnameOverride: ""
+namespaceOverride: ""
+createNamespace: false
+
+imagePullSecrets: []
+# - name: my-registry-secret
+
+# ── Agent (DaemonSet) ─────────────────────────────────────────
+agent:
+  image:
+    repository: flowpulse-agent
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  nodeSelector:
+    flowpulse.io/monitor: "true"
+  tolerations: []
+  pollInterval: 1s
+  flowTimeout: 30s
+  maxFlows: 1000000
+
+# ── Aggregator (StatefulSet) ──────────────────────────────────
+aggregator:
+  replicas: 3
+  image:
+    repository: flowpulse-aggregator
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+  batchSize: 10000
+  flushInterval: 5s
+
+# ── API Server (Deployment) ──────────────────────────────────
+server:
+  replicas: 2
+  image:
+    repository: flowpulse-server
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 2Gi
+
+# ── Web Frontend (Deployment) ────────────────────────────────
+web:
+  replicas: 2
+  image:
+    repository: flowpulse-web
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# ── Ingress ──────────────────────────────────────────────────
+ingress:
+  enabled: false
+  className: ""
+  host: flowpulse.example.com
+  annotations: {}
+    # nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    # nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # nginx.ingress.kubernetes.io/websocket-services: flowpulse-server
+  tls: []
+  # - secretName: flowpulse-tls
+  #   hosts:
+  #     - flowpulse.example.com
+
+# ── Storage ──────────────────────────────────────────────────
+# When enabled=true, deploys in-cluster instances via sub-charts.
+# When enabled=false, set dsn/url/addr to point at external instances.
+
+clickhouse:
+  enabled: true
+  dsn: ""
+  database: flowpulse
+  image:
+    repository: clickhouse/clickhouse-server
+    tag: "24-alpine"
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: "2"
+      memory: 8Gi
+  storage:
+    size: 50Gi
+    storageClassName: ""
+
+nats:
+  enabled: true
+  url: ""
+  stream: flowpulse
+  image:
+    repository: nats
+    tag: "2-alpine"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  storage:
+    size: 10Gi
+    storageClassName: ""
+
+redis:
+  enabled: true
+  addr: ""
+  image:
+    repository: redis
+    tag: "7-alpine"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# ── Auth ─────────────────────────────────────────────────────
+auth:
+  jwtSecret: ""
+
+# ── Email Alerts (optional) ──────────────────────────────────
+smtp:
+  enabled: false
+  host: ""
+  port: 587
+  user: ""
+  pass: ""
+  from: "flowpulse-alerts@example.com"
+  recipients: ""
+
+# ── Network Policy ───────────────────────────────────────────
+networkPolicy:
+  enabled: false

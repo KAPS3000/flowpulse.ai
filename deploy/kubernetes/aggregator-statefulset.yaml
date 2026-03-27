@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: flowpulse-aggregator
+  namespace: flowpulse
+  labels:
+    app.kubernetes.io/name: flowpulse-aggregator
+    app.kubernetes.io/component: aggregator
+spec:
+  serviceName: flowpulse-aggregator
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: flowpulse-aggregator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: flowpulse-aggregator
+        app.kubernetes.io/component: aggregator
+    spec:
+      serviceAccountName: flowpulse-aggregator
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+      containers:
+        - name: aggregator
+          image: flowpulse-aggregator:latest
+          args:
+            - --config=/etc/flowpulse/server.yaml
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+          ports:
+            - name: grpc
+              containerPort: 9091
+              protocol: TCP
+          env:
+            - name: FLOWPULSE_CLICKHOUSE_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: flowpulse-secrets
+                  key: clickhouse-dsn
+            - name: FLOWPULSE_NATS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: flowpulse-secrets
+                  key: nats-url
+          volumeMounts:
+            - name: config
+              mountPath: /etc/flowpulse
+      volumes:
+        - name: config
+          configMap:
+            name: flowpulse-server-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flowpulse-aggregator
+  namespace: flowpulse
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: flowpulse-aggregator
+  ports:
+    - name: grpc
+      port: 9091
+      targetPort: grpc

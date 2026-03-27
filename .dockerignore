@@ -1,0 +1,12 @@
+.git
+.github
+bin/
+deploy/
+*.md
+.lima
+.cursor
+.codex
+bpf/headers/vmlinux.h
+node_modules
+web/node_modules
+web/.next

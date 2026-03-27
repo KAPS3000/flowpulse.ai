@@ -1,0 +1,67 @@
+vmType: vz
+os: Linux
+arch: aarch64
+
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
+
+cpus: 4
+memory: "4GiB"
+disk: "20GiB"
+
+mountType: virtiofs
+mounts:
+  - location: "~/flowpulse"
+    mountPoint: "/home/ksuri.linux/flowpulse"
+    writable: true
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux
+
+      export DEBIAN_FRONTEND=noninteractive
+
+      apt-get update
+      apt-get install -y --no-install-recommends \
+        build-essential \
+        clang \
+        llvm \
+        libbpf-dev \
+        linux-tools-common \
+        linux-tools-generic \
+        linux-headers-generic \
+        pkg-config \
+        libelf-dev \
+        zlib1g-dev \
+        git \
+        curl \
+        wget \
+        ca-certificates \
+        jq
+
+      # Install Go 1.22
+      GO_VERSION=1.22.5
+      wget -q "https://go.dev/dl/go${GO_VERSION}.linux-arm64.tar.gz" -O /tmp/go.tar.gz
+      rm -rf /usr/local/go
+      tar -C /usr/local -xzf /tmp/go.tar.gz
+      rm /tmp/go.tar.gz
+      echo 'export PATH=$PATH:/usr/local/go/bin' > /etc/profile.d/go.sh
+
+      # Install Node.js 20 LTS for mock server
+      curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+      apt-get install -y nodejs
+
+      # Verify BTF support
+      if [ -f /sys/kernel/btf/vmlinux ]; then
+        echo "BTF support confirmed"
+      else
+        echo "WARNING: BTF not available on this kernel"
+      fi
+
+      # Verify BPF filesystem
+      mount -t bpf bpf /sys/fs/bpf 2>/dev/null || true
+
+      echo "FlowPulse eBPF VM provisioning complete"

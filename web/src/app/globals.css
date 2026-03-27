@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-fp-bg text-fp-text;
+}
+
+@layer components {
+  .card {
+    @apply bg-fp-surface border border-fp-border rounded-xl p-6;
+  }
+  .metric-value {
+    @apply text-3xl font-bold tabular-nums;
+  }
+  .metric-label {
+    @apply text-sm text-fp-muted uppercase tracking-wider;
+  }
+  .badge-healthy {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-900/40 text-emerald-400;
+  }
+  .badge-warning {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-900/40 text-amber-400;
+  }
+  .badge-danger {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-900/40 text-red-400;
+  }
+}

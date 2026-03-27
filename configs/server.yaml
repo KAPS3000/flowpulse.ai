@@ -1,0 +1,34 @@
+api:
+  rest_listen: ":8080"
+  grpc_listen: ":9090"
+  ws_path: /ws
+
+auth:
+  jwt_secret_env: FLOWPULSE_JWT_SECRET
+  token_expiry: 24h
+
+aggregator:
+  grpc_listen: ":9091"
+  shard_id: 0
+  batch_size: 10000
+  flush_interval: 5s
+
+clickhouse:
+  dsn_env: FLOWPULSE_CLICKHOUSE_DSN
+  database: flowpulse
+  max_open_conns: 10
+  max_idle_conns: 5
+
+nats:
+  url_env: FLOWPULSE_NATS_URL
+  stream: flowpulse
+  max_pending: 65536
+
+redis:
+  addr_env: FLOWPULSE_REDIS_ADDR
+  db: 0
+  pool_size: 10
+
+log:
+  level: info
+  format: json

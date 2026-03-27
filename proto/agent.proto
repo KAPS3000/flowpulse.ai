@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package flowpulse.v1;
+
+option go_package = "github.com/flowpulse/flowpulse/proto";
+
+import "proto/flow.proto";
+import "google/protobuf/timestamp.proto";
+
+message CPUMetric {
+  uint32 core_id          = 1;
+  uint32 numa_node        = 2;
+  double utilization      = 3;
+  double kernel_pct       = 4;
+  double user_pct         = 5;
+  double softirq_pct      = 6;
+  uint64 context_switches = 7;
+  uint64 involuntary_cs   = 8;
+}
+
+message NodeMetrics {
+  string             node_id      = 1;
+  string             tenant_id    = 2;
+  repeated CPUMetric cpu_metrics  = 3;
+  IBPortMetrics      ib_metrics   = 4;
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+message IBPortMetrics {
+  string port_name            = 1;
+  uint64 tx_bytes             = 2;
+  uint64 rx_bytes             = 3;
+  uint64 tx_packets           = 4;
+  uint64 rx_packets           = 5;
+  uint64 symbol_errors        = 6;
+  uint64 link_recoveries      = 7;
+  uint64 crc_errors           = 8;
+  uint64 port_rcv_errors      = 9;
+  uint32 active_qps           = 10;
+  double link_utilization_pct = 11;
+}
+
+message AgentHeartbeat {
+  string node_id                         = 1;
+  google.protobuf.Timestamp timestamp    = 2;
+  uint64 flows_tracked                   = 3;
+  uint64 ebpf_events_total               = 4;
+  string version                         = 5;
+}
+
+service AgentCollector {
+  rpc StreamFlows(stream FlowBatch) returns (stream FlowAck);
+  rpc StreamMetrics(stream NodeMetrics) returns (stream MetricAck);
+  rpc Heartbeat(AgentHeartbeat) returns (HeartbeatResponse);
+}
+
+message FlowAck {
+  bool   ok      = 1;
+  string message = 2;
+}
+
+message MetricAck {
+  bool   ok      = 1;
+  string message = 2;
+}
+
+message HeartbeatResponse {
+  bool   ok                = 1;
+  uint32 poll_interval_ms  = 2;
+}

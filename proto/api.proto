@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+package flowpulse.v1;
+
+option go_package = "github.com/flowpulse/flowpulse/proto";
+
+import "proto/flow.proto";
+import "proto/agent.proto";
+import "google/protobuf/timestamp.proto";
+
+message ListFlowsRequest {
+  string tenant_id  = 1;
+  string node_id    = 2;
+  uint32 limit      = 3;
+  uint32 offset     = 4;
+  string sort_by    = 5;
+  string sort_order = 6;
+  FlowFilter filter = 7;
+}
+
+message FlowFilter {
+  string src_ip       = 1;
+  string dst_ip       = 2;
+  uint32 min_bytes    = 3;
+  uint32 protocol     = 4;
+  google.protobuf.Timestamp start_time = 5;
+  google.protobuf.Timestamp end_time   = 6;
+}
+
+message ListFlowsResponse {
+  repeated FlowRecord flows = 1;
+  uint64 total_count        = 2;
+}
+
+message GetTopologyRequest {
+  string tenant_id = 1;
+}
+
+message TopologyNode {
+  string node_id     = 1;
+  string hostname    = 2;
+  uint64 flow_count  = 3;
+  double cpu_avg     = 4;
+  double ib_util_pct = 5;
+  string status      = 6;
+}
+
+message TopologyLink {
+  string source_node   = 1;
+  string target_node   = 2;
+  uint64 bandwidth_bps = 3;
+  uint64 flow_count    = 4;
+  double error_rate    = 5;
+}
+
+message GetTopologyResponse {
+  repeated TopologyNode nodes = 1;
+  repeated TopologyLink links = 2;
+}
+
+message TrainingMetrics {
+  string tenant_id                   = 1;
+  double straggler_score             = 2;
+  double bubble_ratio                = 3;
+  double gradient_sync_overhead_pct  = 4;
+  double network_saturation_index    = 5;
+  double imbalance_score             = 6;
+  repeated NodeStraggler stragglers  = 7;
+  google.protobuf.Timestamp timestamp = 8;
+}
+
+message NodeStraggler {
+  string node_id      = 1;
+  double deviation    = 2;
+  double latency_p99  = 3;
+}
+
+message GetTrainingMetricsRequest {
+  string tenant_id = 1;
+  string window    = 2;
+}
+
+service FlowPulseAPI {
+  rpc ListFlows(ListFlowsRequest) returns (ListFlowsResponse);
+  rpc GetTopology(GetTopologyRequest) returns (GetTopologyResponse);
+  rpc GetTrainingMetrics(GetTrainingMetricsRequest) returns (TrainingMetrics);
+}

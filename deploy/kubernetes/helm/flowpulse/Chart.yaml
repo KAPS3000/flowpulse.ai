@@ -1,0 +1,19 @@
+apiVersion: v2
+name: flowpulse
+description: Live eBPF + InfiniBand training flow monitor for distributed ML clusters
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - ebpf
+  - infiniband
+  - monitoring
+  - ml-training
+  - rdma
+  - gpu
+  - datacenter
+maintainers:
+  - name: FlowPulse Team
+home: https://github.com/flowpulse/flowpulse
+sources:
+  - https://github.com/flowpulse/flowpulse

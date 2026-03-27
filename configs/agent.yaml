@@ -1,0 +1,22 @@
+node_id: ""
+tenant_id: "default"
+
+ebpf:
+  poll_interval: 1s
+  flow_timeout: 30s
+  max_flows: 1000000
+  interfaces: []
+  bpf_object_dir: /bpf
+
+aggregator:
+  address: "localhost:9091"
+  batch_size: 1000
+  flush_interval: 1s
+  max_retry: 3
+
+health:
+  listen: ":8081"
+
+log:
+  level: info
+  format: json
