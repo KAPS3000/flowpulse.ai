@@ -22,16 +22,16 @@ FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl wget ca-certificates gnupg supervisor nodejs npm \
+    curl wget ca-certificates gnupg supervisor \
     redis-server nats-server && \
     rm -rf /var/lib/apt/lists/*
 
 RUN curl https://clickhouse.com/ | sh && \
-    mv clickhouse /usr/local/bin/clickhouse && \
-    ln -s /usr/local/bin/clickhouse /usr/local/bin/clickhouse-server && \
-    ln -s /usr/local/bin/clickhouse /usr/local/bin/clickhouse-client
+    mv clickhouse /usr/local/bin/clickhouse
 
-RUN npm install -g n && n 20 && npm cache clean --force
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y --no-install-recommends nodejs && \
+    rm -rf /var/lib/apt/lists/*
 
 COPY --from=go-builder /bin/flowpulse-aggregator /usr/local/bin/
 COPY --from=go-builder /bin/flowpulse-server     /usr/local/bin/

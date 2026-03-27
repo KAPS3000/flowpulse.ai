@@ -13,8 +13,9 @@ mkdir -p /var/lib/clickhouse /var/lib/nats /var/lib/redis \
          /var/log/supervisor /var/run/redis \
          /etc/clickhouse-server
 
-if [ ! -f /etc/clickhouse-server/config.xml ]; then
-  cat > /etc/clickhouse-server/config.xml <<'XMLEOF'
+mkdir -p /etc/clickhouse-server /var/log/clickhouse-server
+
+cat > /etc/clickhouse-server/config.xml <<'XMLEOF'
 <clickhouse>
     <logger>
         <level>warning</level>
@@ -24,10 +25,40 @@ if [ ! -f /etc/clickhouse-server/config.xml ]; then
     <http_port>8123</http_port>
     <tcp_port>9000</tcp_port>
     <path>/var/lib/clickhouse/</path>
+    <tmp_path>/var/lib/clickhouse/tmp/</tmp_path>
+    <user_files_path>/var/lib/clickhouse/user_files/</user_files_path>
+    <format_schema_path>/var/lib/clickhouse/format_schemas/</format_schema_path>
     <mark_cache_size>5368709120</mark_cache_size>
     <max_concurrent_queries>100</max_concurrent_queries>
+    <profiles>
+        <default>
+            <max_memory_usage>10000000000</max_memory_usage>
+        </default>
+    </profiles>
+    <users>
+        <default>
+            <password></password>
+            <networks>
+                <ip>::/0</ip>
+            </networks>
+            <profile>default</profile>
+            <quota>default</quota>
+            <access_management>1</access_management>
+        </default>
+    </users>
+    <quotas>
+        <default>
+            <interval>
+                <duration>3600</duration>
+                <queries>0</queries>
+                <errors>0</errors>
+                <result_rows>0</result_rows>
+                <read_rows>0</read_rows>
+                <execution_time>0</execution_time>
+            </interval>
+        </default>
+    </quotas>
 </clickhouse>
 XMLEOF
-fi
 
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/flowpulse.conf
