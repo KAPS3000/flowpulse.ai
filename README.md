@@ -55,21 +55,18 @@ This will:
 Run the entire FlowPulse stack in a single container — ideal for demos and evaluation.
 
 ```bash
-# Build the all-in-one image
-docker build -f docker/Dockerfile.allinone -t flowpulse .
-
-# Run it
+# Pull and run (no build needed)
 docker run -d --name flowpulse \
   -p 3000:3000 \
   -p 8080:8080 \
   -v flowpulse_data:/var/lib/clickhouse \
-  flowpulse
+  ghcr.io/kaps3000/flowpulse:latest
 
 # Open the dashboard
 open http://localhost:3000
 ```
 
-Or with `make`:
+Or build from source:
 
 ```bash
 make docker-allinone
